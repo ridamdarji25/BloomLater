@@ -1,0 +1,14 @@
+# PVC for MongoDB data — used by the StatefulSet volumeClaimTemplate.
+# The StatefulSet creates this automatically; this file is for documentation only.
+# If you need a standalone PVC for dev, uncomment below:
+
+# apiVersion: v1
+# kind: PersistentVolumeClaim
+# metadata:
+#   name: mongo-data
+# spec:
+#   accessModes:
+#     - ReadWriteOnce
+#   resources:
+#     requests:
+#       storage: 5Gi

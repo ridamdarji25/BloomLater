@@ -1,0 +1,34 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: bloomlater-prod
+  namespace: argocd
+  finalizers:
+    - resources-finalizer.argocd.argoproj.io
+spec:
+  project: default
+
+  source:
+    repoURL: https://github.com/your-org/bloomlater.git
+    targetRevision: HEAD
+    path: k8s/overlays/prod
+
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: bloomlater-prod
+
+  syncPolicy:
+    automated:
+      prune: true         # Remove resources not in Git
+      selfHeal: true      # Re-apply if someone manually changes the cluster
+      allowEmpty: false   # Don't prune everything if source is accidentally empty
+    syncOptions:
+      - CreateNamespace=true
+      - PrunePropagationPolicy=foreground
+      - PruneLast=true
+    retry:
+      limit: 5
+      backoff:
+        duration: 5s
+        factor: 2
+        maxDuration: 3m

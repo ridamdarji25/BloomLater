@@ -1,0 +1,197 @@
+@import url('https://fonts.googleapis.com/css2?family=Syne:wght@400;500;600;700;800&family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;0,9..40,600;1,9..40,300;1,9..40,400&family=JetBrains+Mono:wght@300;400;500;600&family=Playfair+Display:ital,wght@1,400;1,500;1,600&display=swap');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* ─── Custom Base Styles ───────────────────────────────────────────────────── */
+
+@layer base {
+  :root {
+    --color-base: #F5F0E8;
+    --color-ink: #1A1A14;
+    --color-rust: #C4541A;
+    --color-olive: #4A5C2F;
+    --color-mustard: #D4A017;
+    color-scheme: light;
+  }
+
+  *, *::before, *::after {
+    box-sizing: border-box;
+  }
+
+  html {
+    scroll-behavior: smooth;
+    -webkit-text-size-adjust: 100%;
+  }
+
+  body {
+    @apply bg-cream-200 text-ink-900 font-body antialiased;
+    font-feature-settings: 'kern' 1, 'liga' 1, 'calt' 1;
+    overflow-x: hidden;
+  }
+
+  /* Headings use display font by default */
+  h1, h2, h3, h4, h5, h6 {
+    @apply font-display font-bold;
+    text-wrap: balance;
+  }
+
+  /* Reduced motion: globally disable animations */
+  @media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after {
+      animation-duration: 0.01ms !important;
+      animation-iteration-count: 1 !important;
+      transition-duration: 0.01ms !important;
+    }
+  }
+
+  /* Focus ring */
+  :focus-visible {
+    @apply outline-2 outline-offset-2 outline-rust-500;
+  }
+
+  /* Scrollbar — minimal */
+  ::-webkit-scrollbar { width: 6px; height: 6px; }
+  ::-webkit-scrollbar-track { background: transparent; }
+  ::-webkit-scrollbar-thumb { @apply bg-ink-900/20 rounded-full; }
+  ::-webkit-scrollbar-thumb:hover { @apply bg-ink-900/40; }
+
+  /* Selection */
+  ::selection {
+    @apply bg-rust-500/20 text-ink-900;
+  }
+}
+
+/* ─── Component Layer ──────────────────────────────────────────────────────── */
+
+@layer components {
+
+  /* Section chrome: the numbered label in mono */
+  .section-label {
+    @apply font-mono text-label-sm uppercase tracking-[0.12em] text-ink-600 select-none;
+  }
+
+  /* Big italic serif accent line */
+  .serif-accent {
+    @apply font-serif italic text-ink-900/80;
+  }
+
+  /* Capsule status pills */
+  .pill-sealed {
+    @apply inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full
+           font-mono text-label-sm uppercase tracking-wider
+           bg-ink-900 text-cream-200;
+  }
+  .pill-unlockable {
+    @apply inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full
+           font-mono text-label-sm uppercase tracking-wider
+           bg-mustard-500 text-ink-900;
+  }
+  .pill-opened {
+    @apply inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full
+           font-mono text-label-sm uppercase tracking-wider
+           bg-olive-500 text-cream-200;
+  }
+
+  /* Input base */
+  .input-base {
+    @apply w-full px-4 py-3 rounded-lg
+           bg-cream-100 border border-ink-900/15
+           font-body text-ink-900 placeholder:text-ink-600/50
+           transition-colors duration-200
+           focus:outline-none focus:border-rust-500 focus:ring-1 focus:ring-rust-500/30;
+  }
+  .input-error {
+    @apply border-rust-500 focus:border-rust-500 focus:ring-rust-500/30;
+  }
+
+  /* Button base */
+  .btn {
+    @apply inline-flex items-center justify-center gap-2
+           font-body font-medium text-sm
+           rounded-lg px-5 py-2.5
+           transition-all duration-200
+           focus-visible:outline-2 focus-visible:outline-offset-2
+           disabled:opacity-50 disabled:cursor-not-allowed
+           select-none;
+  }
+  .btn-primary {
+    @apply btn bg-ink-900 text-cream-200
+           hover:bg-ink-800 active:bg-ink-700
+           focus-visible:outline-ink-900;
+  }
+  .btn-rust {
+    @apply btn bg-rust-500 text-cream-200
+           hover:bg-rust-600 active:bg-rust-700
+           focus-visible:outline-rust-500;
+  }
+  .btn-ghost {
+    @apply btn bg-transparent text-ink-900
+           border border-ink-900/20
+           hover:bg-ink-900/5 active:bg-ink-900/10
+           focus-visible:outline-ink-900;
+  }
+  .btn-sm {
+    @apply px-3.5 py-2 text-xs;
+  }
+  .btn-lg {
+    @apply px-7 py-4 text-base;
+  }
+
+  /* Capsule card widget */
+  .capsule-card {
+    @apply relative rounded-2xl overflow-hidden
+           transition-all duration-300
+           hover:-translate-y-1 hover:shadow-2xl;
+  }
+
+  /* Noise texture overlay */
+  .noise-overlay::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.04'/%3E%3C/svg%3E");
+    pointer-events: none;
+    mix-blend-mode: overlay;
+  }
+
+  /* Progress bar track */
+  .progress-track {
+    @apply h-1 rounded-full overflow-hidden bg-black/10;
+  }
+  .progress-fill {
+    @apply h-full rounded-full transition-all duration-1000 opacity-60;
+  }
+}
+
+/* ─── Utility Layer ────────────────────────────────────────────────────────── */
+
+@layer utilities {
+  .text-balance { text-wrap: balance; }
+  .text-pretty  { text-wrap: pretty; }
+
+  .grid-auto-fill-sm { grid-template-columns: repeat(auto-fill, minmax(min(100%, 280px), 1fr)); }
+  .grid-auto-fill-md { grid-template-columns: repeat(auto-fill, minmax(min(100%, 340px), 1fr)); }
+
+  /* Hide scrollbar but keep scrollability */
+  .scrollbar-hide {
+    scrollbar-width: none;
+    -ms-overflow-style: none;
+  }
+  .scrollbar-hide::-webkit-scrollbar { display: none; }
+
+  /* Truncate with ellipsis */
+  .truncate-2 {
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+  }
+  .truncate-3 {
+    display: -webkit-box;
+    -webkit-line-clamp: 3;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+  }
+}

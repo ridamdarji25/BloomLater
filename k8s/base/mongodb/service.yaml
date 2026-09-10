@@ -1,0 +1,16 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: mongo
+  labels:
+    app.kubernetes.io/name: bloomlater
+    app.kubernetes.io/component: mongodb
+spec:
+  selector:
+    app: bloomlater-mongo
+  ports:
+    - name: mongo
+      port: 27017
+      targetPort: 27017
+  type: ClusterIP
+  clusterIP: None  # Headless service for StatefulSet DNS

@@ -1,0 +1,195 @@
+name: CI — BloomLater
+
+on:
+  push:
+    branches: [main, develop]
+  pull_request:
+    branches: [main]
+
+env:
+  REGISTRY: ghcr.io
+  IMAGE_FRONTEND: ghcr.io/${{ github.repository_owner }}/bloomlater-frontend
+  IMAGE_BACKEND: ghcr.io/${{ github.repository_owner }}/bloomlater-backend
+
+jobs:
+  # ─── Lint ──────────────────────────────────────────────────────────────────
+  lint-backend:
+    name: Lint — Backend
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: "npm"
+          cache-dependency-path: backend/package-lock.json
+
+      - name: Install deps
+        working-directory: backend
+        run: npm ci
+
+      - name: Lint
+        working-directory: backend
+        run: npm run lint
+
+  lint-frontend:
+    name: Lint — Frontend
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: "npm"
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Install deps
+        working-directory: frontend
+        run: npm ci
+
+      - name: Lint
+        working-directory: frontend
+        run: npm run lint
+
+      - name: Build (type-check via Vite)
+        working-directory: frontend
+        run: npm run build
+
+  # ─── Build Images ──────────────────────────────────────────────────────────
+  build-images:
+    name: Build Docker Images
+    runs-on: ubuntu-latest
+    needs: [lint-backend, lint-frontend]
+    if: github.event_name == 'push'
+    outputs:
+      sha_tag: ${{ steps.meta.outputs.sha_tag }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Log in to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Set image tag
+        id: meta
+        run: echo "sha_tag=git-${GITHUB_SHA::8}" >> $GITHUB_OUTPUT
+
+      - name: Build & push frontend image
+        uses: docker/build-push-action@v5
+        with:
+          context: ./frontend
+          push: true
+          tags: |
+            ${{ env.IMAGE_FRONTEND }}:${{ steps.meta.outputs.sha_tag }}
+            ${{ env.IMAGE_FRONTEND }}:latest
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+          build-args: |
+            VITE_API_URL=/api
+
+      - name: Build & push backend image
+        uses: docker/build-push-action@v5
+        with:
+          context: ./backend
+          push: true
+          tags: |
+            ${{ env.IMAGE_BACKEND }}:${{ steps.meta.outputs.sha_tag }}
+            ${{ env.IMAGE_BACKEND }}:latest
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+  # ─── Security Scan ─────────────────────────────────────────────────────────
+  scan-images:
+    name: Trivy Security Scan
+    runs-on: ubuntu-latest
+    needs: [build-images]
+    if: github.event_name == 'push'
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Log in to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Scan frontend image
+        uses: aquasecurity/trivy-action@master
+        with:
+          image-ref: ${{ env.IMAGE_FRONTEND }}:${{ needs.build-images.outputs.sha_tag }}
+          format: "sarif"
+          output: "trivy-frontend.sarif"
+          severity: "HIGH,CRITICAL"
+          exit-code: "1"   # Fail on HIGH or CRITICAL
+          ignore-unfixed: true
+
+      - name: Upload frontend Trivy results
+        uses: github/codeql-action/upload-sarif@v3
+        if: always()
+        with:
+          sarif_file: "trivy-frontend.sarif"
+          category: "trivy-frontend"
+
+      - name: Scan backend image
+        uses: aquasecurity/trivy-action@master
+        with:
+          image-ref: ${{ env.IMAGE_BACKEND }}:${{ needs.build-images.outputs.sha_tag }}
+          format: "sarif"
+          output: "trivy-backend.sarif"
+          severity: "HIGH,CRITICAL"
+          exit-code: "1"
+          ignore-unfixed: true
+
+      - name: Upload backend Trivy results
+        uses: github/codeql-action/upload-sarif@v3
+        if: always()
+        with:
+          sarif_file: "trivy-backend.sarif"
+          category: "trivy-backend"
+
+  # ─── GitOps Tag Bump ───────────────────────────────────────────────────────
+  update-gitops-tag:
+    name: Bump GitOps Image Tag
+    runs-on: ubuntu-latest
+    needs: [scan-images]
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.GITOPS_PAT }}  # PAT with repo write access
+
+      - name: Configure git
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+
+      - name: Install kustomize
+        uses: imranismail/setup-kustomize@v2
+        with:
+          kustomize-version: "5.4.1"
+
+      - name: Update prod image tags
+        run: |
+          SHA_TAG="${{ needs.build-images.outputs.sha_tag }}"
+          cd k8s/overlays/prod
+          kustomize edit set image \
+            ghcr.io/${{ github.repository_owner }}/bloomlater-frontend=${IMAGE_FRONTEND}:${SHA_TAG} \
+            ghcr.io/${{ github.repository_owner }}/bloomlater-backend=${IMAGE_BACKEND}:${SHA_TAG}
+        env:
+          IMAGE_FRONTEND: ${{ env.IMAGE_FRONTEND }}
+          IMAGE_BACKEND: ${{ env.IMAGE_BACKEND }}
+
+      - name: Commit and push updated tags
+        run: |
+          git add k8s/overlays/prod/kustomization.yaml
+          git diff --staged --quiet || git commit -m "chore: bump prod image tags to ${{ needs.build-images.outputs.sha_tag }} [skip ci]"
+          git push
