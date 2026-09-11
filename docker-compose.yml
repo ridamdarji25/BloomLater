@@ -1,0 +1,40 @@
+services:
+  mongo:
+    image: mongo:7
+    container_name: bloom-mongo
+    ports:
+      - "27017:27017"
+    volumes:
+      - mongo_data:/data/db
+    environment:
+      - MONGO_INITDB_ROOT_USERNAME=bloomlater
+      - MONGO_INITDB_ROOT_PASSWORD=changeme_super_secret
+    networks:
+      - bloom-network
+
+  bloom-backend-cont:
+    image: riamtech/bloom-backend
+    container_name: bloom-backend-cont
+    ports:
+      - "4000:4000"
+    environment:
+      - MONGO_URI=mongodb://bloom-mongo:27017/bloomlater
+      - MONGO_INITDB_ROOT_USERNAME=bloomlater
+      - MONGO_INITDB_ROOT_PASSWORD=changeme_super_secret
+    depends_on:
+      - mongo
+    networks:
+      - bloom-network
+
+  bloom-frontend-cont:
+    image: riamtech/bloom-frontend
+    container_name: bloom-frontend-cont
+    ports:
+      - "80:8080"
+    depends_on:
+      - bloom-backend-cont
+    networks:
+      - bloom-network
+
+volumes:
+  mongo_data:
