@@ -1,40 +1,65 @@
 services:
+
   mongo:
     image: mongo:7
     container_name: bloom-mongo
+
     ports:
       - "27017:27017"
+
     volumes:
       - mongo_data:/data/db
+
     environment:
       - MONGO_INITDB_ROOT_USERNAME=bloomlater
       - MONGO_INITDB_ROOT_PASSWORD=changeme_super_secret
+
     networks:
       - bloom-network
+
 
   bloom-backend-cont:
-    image: riamtech/bloom-backend
+    image: riamtech/bloom-backend:latest
     container_name: bloom-backend-cont
+
     ports:
       - "4000:4000"
+
     environment:
-      - MONGO_URI=mongodb://bloom-mongo:27017/bloomlater
+      - MONGO_URI=mongodb://bloomlater:changeme_super_secret@bloom-mongo:27017/bloomlater?authSource=admin
       - MONGO_INITDB_ROOT_USERNAME=bloomlater
       - MONGO_INITDB_ROOT_PASSWORD=changeme_super_secret
+      - JWT_ACCESS_SECRET=2e29bd0f6fb652aad4323126327d7689bbcf2afaeed5bb776e26953fe333cdf26a114caff9ab8d547d80844701c60233f05ba97c2031e9936126cc80f21f348f
+      - JWT_REFRESH_SECRET=568cc8899faa892104045e4389bd67e47900072d3b6ff45c43d2539cd1f42b7ad22db93136b3a1531358d3d8319565e688b75898720404e55a1a3a532e69e45a
+      - JWT_ACCESS_EXPIRES_IN=15m
+      - JWT_REFRESH_EXPIRES_IN=7d
+      - CORS_ORIGIN=http://localhost:5173,http://localhost:80,http://localhost,http://localhost:8080,http://127.0.0.1:5173,http://127.0.0.1:80,http://127.0.0.1
+      - NODE_ENV=production
+
     depends_on:
       - mongo
+
     networks:
       - bloom-network
 
+
   bloom-frontend-cont:
-    image: riamtech/bloom-frontend
+    image: riamtech/bloom-frontend:latest
     container_name: bloom-frontend-cont
+
     ports:
       - "80:8080"
+
     depends_on:
       - bloom-backend-cont
+
     networks:
       - bloom-network
+
 
 volumes:
   mongo_data:
+
+
+networks:
+  bloom-network:
