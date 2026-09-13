@@ -48,8 +48,9 @@ services:
         condition: service_healthy
 
     networks:
-      - bloom-network
-
+      bloom-network:
+        aliases:
+          - bloom-back-svc
 
   bloom-frontend-cont:
     image: riamtech/bloom-frontend:latest
