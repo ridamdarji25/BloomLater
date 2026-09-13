@@ -21,7 +21,7 @@ pipeline {
 
     stages {
 
-        stage('Checkout') {
+        stage('Checkout Source Code') {
             steps {
                 git(
                     branch: 'main',
@@ -34,7 +34,7 @@ pipeline {
         stage('Install Dependencies') {
             parallel {
 
-                stage('Backend') {
+                stage('Install Backend Dependencies') {
                     steps {
                         dir('backend') {
                             sh 'npm ci'
@@ -42,7 +42,7 @@ pipeline {
                     }
                 }
 
-                stage('Frontend') {
+                stage('Install Frontend Dependencies') {
                     steps {
                         dir('frontend') {
                             sh 'npm ci'
@@ -52,10 +52,10 @@ pipeline {
             }
         }
 
-        stage('Lint') {
+        stage('Code Linting') {
             parallel {
 
-                stage('Backend') {
+                stage('Backend Lint Check') {
                     steps {
                         dir('backend') {
                             sh 'npm run lint || true'
@@ -63,7 +63,7 @@ pipeline {
                     }
                 }
 
-                stage('Frontend') {
+                stage('Frontend Lint Check') {
                     steps {
                         dir('frontend') {
                             sh 'npm run lint || true'
@@ -73,10 +73,10 @@ pipeline {
             }
         }
 
-        stage('Security Scan') {
+        stage('Security Scanning') {
             parallel {
 
-                stage('OWASP Dependency Check') {
+                stage('OWASP Dependency Vulnerability Scan') {
                     steps {
                         catchError(
                             buildResult: 'SUCCESS',
@@ -108,7 +108,7 @@ pipeline {
                     }
                 }
 
-                stage('Trivy FS') {
+                stage('Trivy Filesystem Security Scan') {
                     steps {
                         catchError(
                             buildResult: 'SUCCESS',
@@ -128,7 +128,7 @@ pipeline {
             }
         }
 
-        stage('SonarQube Analysis') {
+        stage('SonarQube Code Quality Analysis') {
             steps {
                 withSonarQubeEnv('sonar-server') {
                     withCredentials([
@@ -150,7 +150,7 @@ pipeline {
             }
         }
 
-        stage('Quality Gate') {
+        stage('SonarQube Quality Gate') {
             steps {
                 timeout(time: 5, unit: 'MINUTES') {
                     waitForQualityGate abortPipeline: true
@@ -158,10 +158,10 @@ pipeline {
             }
         }
 
-        stage('Build Images') {
+        stage('Build Docker Images') {
             parallel {
 
-                stage('Backend') {
+                stage('Build Backend Docker Image') {
                     steps {
                         sh """
                             docker build \
@@ -172,7 +172,7 @@ pipeline {
                     }
                 }
 
-                stage('Frontend') {
+                stage('Build Frontend Docker Image') {
                     steps {
                         sh """
                             docker build \
@@ -186,7 +186,7 @@ pipeline {
             }
         }
 
-        stage('Integration Tests') {
+        stage('MongoDB + Backend Integration Test') {
             steps {
                 withCredentials([
                     usernamePassword(
@@ -201,74 +201,101 @@ pipeline {
                         export CI_JWT_ACCESS_SECRET=$(openssl rand -hex 32)
                         export CI_JWT_REFRESH_SECRET=$(openssl rand -hex 32)
 
-                        cat > docker-compose.ci.yml <<'EOF'
-services:
+                        docker network create bloom-validation 2>/dev/null || true
 
-  mongo:
-    image: mongo:7
-    container_name: bloom-mongo-ci
-    environment:
-      MONGO_INITDB_ROOT_USERNAME: ${MONGO_USER}
-      MONGO_INITDB_ROOT_PASSWORD: ${MONGO_PASS}
-    healthcheck:
-      test: ["CMD", "mongosh", "--eval", "db.adminCommand('ping')"]
-      interval: 5s
-      timeout: 5s
-      retries: 10
-    networks:
-      - bloom-ci
+                        docker run -d \
+                            --name bloom-mongo-validation \
+                            --network bloom-validation \
+                            -e MONGO_INITDB_ROOT_USERNAME="$MONGO_USER" \
+                            -e MONGO_INITDB_ROOT_PASSWORD="$MONGO_PASS" \
+                            mongo:7
 
-  backend:
-    image: ${BACKEND_IMAGE}:${BUILD_NUMBER}
-    container_name: bloom-backend-ci
-    environment:
-      MONGO_URI: mongodb://${MONGO_USER}:${MONGO_PASS}@mongo:27017/bloomlater?authSource=admin
-      JWT_ACCESS_SECRET: ${CI_JWT_ACCESS_SECRET}
-      JWT_REFRESH_SECRET: ${CI_JWT_REFRESH_SECRET}
-      JWT_ACCESS_EXPIRES_IN: 15m
-      JWT_REFRESH_EXPIRES_IN: 7d
-      CORS_ORIGIN: http://localhost:8080
-      NODE_ENV: test
-    depends_on:
-      mongo:
-        condition: service_healthy
-    networks:
-      - bloom-ci
+                        echo "Waiting for MongoDB..."
 
-  frontend:
-    image: ${FRONTEND_IMAGE}:${BUILD_NUMBER}
-    container_name: bloom-frontend-ci
-    ports:
-      - "8080:8080"
-    depends_on:
-      - backend
-    networks:
-      - bloom-ci
+                        MONGO_READY=false
 
-networks:
-  bloom-ci:
-EOF
+                        for i in $(seq 1 20); do
 
-                        docker compose \
-                            -p bloom-ci \
-                            -f docker-compose.ci.yml \
-                            up -d
+                            if docker exec bloom-mongo-validation \
+                                mongosh \
+                                -u "$MONGO_USER" \
+                                -p "$MONGO_PASS" \
+                                --authenticationDatabase admin \
+                                --eval "db.adminCommand('ping')" \
+                                >/dev/null 2>&1; then
 
-                        sleep 10
+                                echo "MongoDB is healthy"
+                                MONGO_READY=true
+                                break
+                            fi
 
-                        docker exec bloom-backend-ci \
-                            wget -qO- http://localhost:4000/health
+                            echo "MongoDB not ready - attempt ${i}/20"
 
-                        curl -f http://localhost:8080
+                            sleep 3
+                        done
+
+                        if [ "$MONGO_READY" != "true" ]; then
+                            echo "MongoDB health check failed"
+                            docker logs bloom-mongo-validation || true
+                            exit 1
+                        fi
+
+                        docker run -d \
+                            --name bloom-backend-validation \
+                            --network bloom-validation \
+                            -e MONGO_URI="mongodb://${MONGO_USER}:${MONGO_PASS}@bloom-mongo-validation:27017/bloomlater?authSource=admin" \
+                            -e JWT_ACCESS_SECRET="$CI_JWT_ACCESS_SECRET" \
+                            -e JWT_REFRESH_SECRET="$CI_JWT_REFRESH_SECRET" \
+                            -e JWT_ACCESS_EXPIRES_IN=15m \
+                            -e JWT_REFRESH_EXPIRES_IN=7d \
+                            -e CORS_ORIGIN=http://localhost:8080 \
+                            -e NODE_ENV=test \
+                            "${BACKEND_IMAGE}:${BUILD_NUMBER}"
+
+                        echo "Waiting for Backend..."
+
+                        BACKEND_READY=false
+
+                        for i in $(seq 1 20); do
+
+                            if docker exec bloom-backend-validation \
+                                wget -qO- http://127.0.0.1:4000/health; then
+
+                                echo "Backend is healthy"
+                                BACKEND_READY=true
+                                break
+                            fi
+
+                            echo "Backend not ready - attempt ${i}/20"
+
+                            docker logs --tail 20 bloom-backend-validation || true
+
+                            sleep 3
+                        done
+
+                        if [ "$BACKEND_READY" != "true" ]; then
+                            echo "Backend health check failed"
+
+                            docker logs bloom-mongo-validation || true
+                            docker logs bloom-backend-validation || true
+
+                            exit 1
+                        fi
+
+                        echo "Backend health check passed"
+                        echo "MongoDB + Backend integration test passed"
+
+                        docker exec bloom-backend-validation \
+                            wget -qO- http://127.0.0.1:4000/health
                     '''
                 }
             }
         }
 
-        stage('Trivy Image Scan') {
+        stage('Container Image Security Scanning') {
             parallel {
 
-                stage('Backend') {
+                stage('Trivy Backend Image Scan') {
                     steps {
                         catchError(
                             buildResult: 'SUCCESS',
@@ -283,7 +310,7 @@ EOF
                     }
                 }
 
-                stage('Frontend') {
+                stage('Trivy Frontend Image Scan') {
                     steps {
                         catchError(
                             buildResult: 'SUCCESS',
@@ -300,28 +327,53 @@ EOF
             }
         }
 
-        stage('Push Images') {
-            steps {
-                withCredentials([
-                    usernamePassword(
-                        credentialsId: 'docker',
-                        usernameVariable: 'DOCKER_USER',
-                        passwordVariable: 'DOCKER_PASS'
-                    )
-                ]) {
-                    sh '''
-                        echo "$DOCKER_PASS" | docker login \
-                            -u "$DOCKER_USER" \
-                            --password-stdin
+        stage('Push Docker Images') {
+            parallel {
 
-                        docker push "$BACKEND_IMAGE:$BUILD_NUMBER"
-                        docker push "$BACKEND_IMAGE:latest"
+                stage('Push Backend Image to Docker Hub') {
+                    steps {
+                        withCredentials([
+                            usernamePassword(
+                                credentialsId: 'docker',
+                                usernameVariable: 'DOCKER_USER',
+                                passwordVariable: 'DOCKER_PASS'
+                            )
+                        ]) {
+                            sh '''
+                                echo "$DOCKER_PASS" | docker login \
+                                    -u "$DOCKER_USER" \
+                                    --password-stdin
 
-                        docker push "$FRONTEND_IMAGE:$BUILD_NUMBER"
-                        docker push "$FRONTEND_IMAGE:latest"
+                                docker push "$BACKEND_IMAGE:$BUILD_NUMBER"
+                                docker push "$BACKEND_IMAGE:latest"
 
-                        docker logout
-                    '''
+                                docker logout
+                            '''
+                        }
+                    }
+                }
+
+                stage('Push Frontend Image to Docker Hub') {
+                    steps {
+                        withCredentials([
+                            usernamePassword(
+                                credentialsId: 'docker',
+                                usernameVariable: 'DOCKER_USER',
+                                passwordVariable: 'DOCKER_PASS'
+                            )
+                        ]) {
+                            sh '''
+                                echo "$DOCKER_PASS" | docker login \
+                                    -u "$DOCKER_USER" \
+                                    --password-stdin
+
+                                docker push "$FRONTEND_IMAGE:$BUILD_NUMBER"
+                                docker push "$FRONTEND_IMAGE:latest"
+
+                                docker logout
+                            '''
+                        }
+                    }
                 }
             }
         }
@@ -331,12 +383,13 @@ EOF
 
         always {
             sh '''
-                docker compose \
-                    -p bloom-ci \
-                    -f docker-compose.ci.yml \
-                    down -v --remove-orphans || true
+                docker rm -f \
+                    bloom-backend-validation \
+                    bloom-mongo-validation 2>/dev/null || true
 
-                rm -f docker-compose.ci.yml
+                docker network rm bloom-validation 2>/dev/null || true
+
+                docker image prune -af || true
             '''
 
             archiveArtifacts(
@@ -358,8 +411,10 @@ Job: ${JOB_NAME}
 Build: #${BUILD_NUMBER}
 Branch: main
 
-Images:
+Backend Image:
 ${BACKEND_IMAGE}:${BUILD_NUMBER}
+
+Frontend Image:
 ${FRONTEND_IMAGE}:${BUILD_NUMBER}
 
 Build URL:
