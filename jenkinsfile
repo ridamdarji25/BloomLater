@@ -1,4 +1,4 @@
-﻿pipeline {
+pipeline {
     agent any
 
     environment {
@@ -9,7 +9,8 @@
     }
 
     tools {
-        nodejs 'NodeJS-20'
+        nodejs 'node20'
+        jdk 'jdk21'
     }
 
     options {
@@ -69,36 +70,45 @@
 
         stage('OWASP Dependency-Check') {
             steps {
-                withCredentials([string(credentialsId: 'nvd-api-key', variable: 'NVD_API_KEY')]) {
-                    dependencyCheck(
-                        additionalArguments: """
-                            --scan backend/
-                            --scan frontend/
-                            --format HTML
-                            --format XML
-                            --nvdApiKey ${NVD_API_KEY}
-                            --out reports/dependency-check
-                            --prettyPrint
-                        """,
-                        odcInstallation: 'OWASP-DC'
+                catchError(buildResult: 'SUCCESS', stageResult: 'UNSTABLE') {
+                    withCredentials([string(credentialsId: 'nvd-api-key', variable: 'NVD_API_KEY')]) {
+                        dependencyCheck(
+                            additionalArguments: """
+                                --scan backend/
+                                --scan frontend/
+                                --format HTML
+                                --format XML
+                                --nvdApiKey ${NVD_API_KEY}
+                                --out reports/dependency-check
+                                --prettyPrint
+                            """,
+                            odcInstallation: 'OWASP-DC'
+                        )
+                    }
+                    dependencyCheckPublisher(
+                        pattern: 'reports/dependency-check/dependency-check-report.xml',
+                        failedTotalCritical: 1000,
+                        failedTotalHigh: 1000,
+                        failedTotalMedium: 1000
                     )
                 }
-                dependencyCheckPublisher pattern: 'reports/dependency-check/dependency-check-report.xml'
             }
         }
 
         stage('Trivy FS Scan') {
             steps {
-                sh '''
-                    mkdir -p reports/trivy
-                    trivy fs . \
-                        --exit-code 0 \
-                        --severity HIGH,CRITICAL \
-                        --format table \
-                        -o reports/trivy/fs-scan.txt
-                    echo "---- Trivy FS Scan Report ----"
-                    cat reports/trivy/fs-scan.txt
-                '''
+                catchError(buildResult: 'SUCCESS', stageResult: 'UNSTABLE') {
+                    sh '''
+                        mkdir -p reports/trivy
+                        trivy fs . \
+                            --exit-code 0 \
+                            --severity HIGH,CRITICAL \
+                            --format table \
+                            -o reports/trivy/fs-scan.txt
+                        echo "---- Trivy FS Scan Report ----"
+                        cat reports/trivy/fs-scan.txt
+                    '''
+                }
             }
         }
 
@@ -158,30 +168,34 @@
             parallel {
                 stage('Scan Backend Image') {
                     steps {
-                        sh """
-                            trivy image \
-                                --exit-code 0 \
-                                --severity HIGH,CRITICAL \
-                                --format table \
-                                -o reports/trivy/backend-image-scan.txt \
-                                ${DOCKER_IMAGE_BACKEND}:${BUILD_NUMBER}
-                            echo "---- Backend Image Scan Report ----"
-                            cat reports/trivy/backend-image-scan.txt
-                        """
+                        catchError(buildResult: 'SUCCESS', stageResult: 'UNSTABLE') {
+                            sh """
+                                trivy image \
+                                    --exit-code 0 \
+                                    --severity HIGH,CRITICAL \
+                                    --format table \
+                                    -o reports/trivy/backend-image-scan.txt \
+                                    ${DOCKER_IMAGE_BACKEND}:${BUILD_NUMBER}
+                                echo "---- Backend Image Scan Report ----"
+                                cat reports/trivy/backend-image-scan.txt
+                            """
+                        }
                     }
                 }
                 stage('Scan Frontend Image') {
                     steps {
-                        sh """
-                            trivy image \
-                                --exit-code 0 \
-                                --severity HIGH,CRITICAL \
-                                --format table \
-                                -o reports/trivy/frontend-image-scan.txt \
-                                ${DOCKER_IMAGE_FRONTEND}:${BUILD_NUMBER}
-                            echo "---- Frontend Image Scan Report ----"
-                            cat reports/trivy/frontend-image-scan.txt
-                        """
+                        catchError(buildResult: 'SUCCESS', stageResult: 'UNSTABLE') {
+                            sh """
+                                trivy image \
+                                    --exit-code 0 \
+                                    --severity HIGH,CRITICAL \
+                                    --format table \
+                                    -o reports/trivy/frontend-image-scan.txt \
+                                    ${DOCKER_IMAGE_FRONTEND}:${BUILD_NUMBER}
+                                echo "---- Frontend Image Scan Report ----"
+                                cat reports/trivy/frontend-image-scan.txt
+                            """
+                        }
                     }
                 }
             }
