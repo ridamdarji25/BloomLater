@@ -1,0 +1,20 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: bloom-front-dep
+  namespace: bloom-ns
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: bloom-front
+  template:
+    metadata:
+      labels:
+        app: bloom-front
+    spec:
+      containers:
+        - name: front
+          image: riamtech/bloom-frontend:latest
+          ports:
+            - containerPort: 8080

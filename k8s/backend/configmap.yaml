@@ -1,0 +1,10 @@
+apiVersion: v1
+kind: ConfigMap
+
+metadata:
+  name: bloom-back-config
+  namespace: bloom-ns
+
+data:
+  NODE_ENV: production
+  PORT: "4000"

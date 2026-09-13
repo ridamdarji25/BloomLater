@@ -1,0 +1,34 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: bloom-mongo-dep
+  namespace: bloom-ns
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: bloom-mongo
+  template:
+    metadata:
+      labels:
+        app: bloom-mongo
+    spec:
+      containers:
+        - name: mongo
+          image: mongo:7
+          ports:
+            - containerPort: 27017
+          env:
+            - name: MONGO_INITDB_ROOT_USERNAME
+              value: bloomlater
+            - name: MONGO_INITDB_ROOT_PASSWORD
+              value: changeme_super_secret
+          volumeMounts:
+            - name: mongo-storage
+              mountPath: /data/db
+      volumes:
+        - name: mongo-storage
+          persistentVolumeClaim:
+            claimName: bloom-mongo-pvc
+
+            

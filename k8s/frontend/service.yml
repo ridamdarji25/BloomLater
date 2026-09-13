@@ -1,0 +1,16 @@
+apiVersion: v1
+kind: Service
+
+metadata:
+  name: bloom-front-svc
+  namespace: bloom-ns
+
+spec:
+  selector:
+    app: bloom-front
+
+  ports:
+    - port: 80
+      targetPort: 8080
+  
+  type: ClusterIP

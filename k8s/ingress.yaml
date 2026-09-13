@@ -1,0 +1,40 @@
+apiVersion: networking.k8s.io/v1
+
+kind: Ingress
+
+metadata:
+  name: bloom-ingress
+  namespace: bloom-ns
+
+spec:
+  ingressClassName: nginx
+
+  rules:
+    - http:
+        paths:
+          # API requests → Backend
+          - path: /api
+            pathType: Prefix
+            backend:
+              service:
+                name: bloom-back-svc
+                port:
+                  number: 4000
+
+          # Health check → Backend
+          - path: /health
+            pathType: Prefix
+            backend:
+              service:
+                name: bloom-back-svc
+                port:
+                  number: 4000
+
+          # Frontend traffic → Frontend
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: bloom-front-svc
+                port:
+                  number: 80

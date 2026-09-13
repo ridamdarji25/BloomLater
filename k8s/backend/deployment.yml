@@ -1,0 +1,33 @@
+apiVersion: apps/v1
+
+kind: Deployment
+
+metadata:
+  name: bloom-back-dep
+  namespace: bloom-ns
+
+spec:
+  replicas: 1
+
+  selector:
+    matchLabels:
+      app: bloom-back
+
+  template:
+    metadata:
+      labels:
+        app: bloom-back
+
+    spec:
+      containers:
+        - name: back
+          image: riamtech/bloom-backend:latest
+          ports:
+            - containerPort: 4000
+
+          envFrom:
+            - configMapRef:
+                name: bloom-back-config
+
+            - secretRef:
+                name: bloom-back-secret
