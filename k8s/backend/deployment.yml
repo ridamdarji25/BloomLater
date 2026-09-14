@@ -21,7 +21,7 @@ spec:
     spec:
       containers:
         - name: back
-          image: riamtech/bloom-backend:latest
+          image: riamtech/bloom-backend:1
           ports:
             - containerPort: 4000
 
