@@ -29,7 +29,23 @@ resource "aws_iam_role" "ebs_csi" {
 resource "aws_iam_role_policy_attachment" "ebs_csi" {
   role = aws_iam_role.ebs_csi.name
 
-  policy_arn = "arn:aws:iam::aws:policy/service-role/AmazonEBSCSIDriverPolicyV2"
+  policy_arn = "arn:aws:iam::aws:policy/service-role/AmazonEBSCSIDriverPolicy"
+}
+
+resource "aws_iam_role_policy" "ebs_csi_describe_az" {
+  name = "${var.cluster_name}-ebs-csi-describe-az"
+  role = aws_iam_role.ebs_csi.id
+
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Effect   = "Allow"
+        Action   = "ec2:DescribeAvailabilityZones"
+        Resource = "*"
+      }
+    ]
+  })
 }
 
 module "eks" {
@@ -80,16 +96,11 @@ module "eks" {
 
   eks_managed_node_groups = {
     default = {
-      instance_types = [
-        var.node_instance_type
-      ]
-
-      min_size     = var.node_min_size
-      max_size     = var.node_max_size
-      desired_size = var.node_desired_size
-
-      subnet_ids = module.vpc.public_subnets
-
+      instance_types = [var.node_instance_type]
+      min_size       = var.node_min_size
+      max_size       = var.node_max_size
+      desired_size   = var.node_desired_size
+      subnet_ids     = module.vpc.public_subnets
       labels = {
         role = "general"
       }
