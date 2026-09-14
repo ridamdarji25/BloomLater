@@ -15,6 +15,6 @@ spec:
     spec:
       containers:
         - name: front
-          image: riamtech/bloom-frontend:2
+          image: riamtech/bloom-frontend:4
           ports:
             - containerPort: 8080
