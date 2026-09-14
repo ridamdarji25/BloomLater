@@ -8,7 +8,7 @@
 
 This document provides complete technical, architectural, operational, and deployment guidelines for **DevOps / SRE / Platform Engineers** to containerize, orchestrate (Docker, Kubernetes, Nomad, etc.), and build CI/CD pipelines (e.g. Jenkins, GitHub Actions, GitLab CI) for BloomLater.
 
-All containerization and cluster-specific configurations (Dockerfiles, Kubernetes manifests, CI workflows) have been stripped from the repository to give DevOps a completely clean slate for implementing standard CI/CD and deployment strategies.
+All containerization and cluster-specific configurations (Dockerfiles, Kubernetes manifests, CI workflows) have been stripped from the repository to give DevOps a completely clean slate for implementing standard CI/CD & deployment strategies.
 
 ---
 
