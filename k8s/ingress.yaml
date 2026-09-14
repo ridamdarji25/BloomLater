@@ -1,18 +1,19 @@
 apiVersion: networking.k8s.io/v1
-
 kind: Ingress
-
 metadata:
   name: bloom-ingress
   namespace: bloom-ns
-
+  annotations:
+    alb.ingress.kubernetes.io/scheme: internet-facing
+    alb.ingress.kubernetes.io/target-type: ip
+    alb.ingress.kubernetes.io/listen-ports: '[{"HTTP":80}]'
 spec:
-  ingressClassName: nginx
+  ingressClassName: alb
 
   rules:
     - http:
         paths:
-          # API requests → Backend
+
           - path: /api
             pathType: Prefix
             backend:
@@ -21,7 +22,6 @@ spec:
                 port:
                   number: 4000
 
-          # Health check → Backend
           - path: /health
             pathType: Prefix
             backend:
@@ -30,7 +30,6 @@ spec:
                 port:
                   number: 4000
 
-          # Frontend traffic → Frontend
           - path: /
             pathType: Prefix
             backend:
