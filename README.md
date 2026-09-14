@@ -64,7 +64,7 @@ BloomLater/
 │   └── uploads/                           # Local storage directory for user uploads (if local driver)
 │
 ├── frontend/                     # Single Page Application (SPA)
-│   ├── package.json              # Client dependencies and Vite scripts
+│   ├── package.json              # Client dependencies and Vite script
 │   ├── package-lock.json         # Client lockfile
 │   ├── index.html                # Vite HTML shell
 │   ├── vite.config.js            # Vite configuration (port 5173, bundle chunks)
