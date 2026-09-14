@@ -89,3 +89,6 @@ terraform/*_override.tf.json
 # CLI config (contains credentials)
 terraform/.terraformrc
 terraform/terraform.rc
+
+# ─── AWS IAM policy downloads ─────────────────────────────────────────────────
+iam_policy.json

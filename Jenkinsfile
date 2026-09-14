@@ -377,6 +377,51 @@ pipeline {
                 }
             }
         }
+
+        stage('GitOps - Update Kubernetes Manifests') {
+            steps {
+                withCredentials([
+                    usernamePassword(
+                        credentialsId: 'github-creds',
+                        usernameVariable: 'GIT_USER',
+                        passwordVariable: 'GIT_TOKEN'
+                    )
+                ]) {
+                    sh '''
+                        set -e
+
+                        LAST_COMMIT_MSG=$(git log -1 --pretty=%s)
+                        if echo "$LAST_COMMIT_MSG" | grep -q "^chore(gitops):"; then
+                            echo "GitOps commit detected — skipping to prevent infinite loop."
+                            exit 0
+                        fi
+
+                        git config user.name "Jenkins"
+                        git config user.email "jenkins@localhost"
+
+                        sed -i "s|image: riamtech/bloom-backend:.*|image: riamtech/bloom-backend:${BUILD_NUMBER}|g" \
+                            k8s/backend/deployment.yml
+
+                        sed -i "s|image: riamtech/bloom-frontend:.*|image: riamtech/bloom-frontend:${BUILD_NUMBER}|g" \
+                            k8s/frontend/deployment.yml
+
+                        git add \
+                            k8s/backend/deployment.yml \
+                            k8s/frontend/deployment.yml
+
+                        if git diff --cached --quiet; then
+                            echo "No manifest changes — nothing to commit."
+                            exit 0
+                        fi
+
+                        git commit -m "chore(gitops): deploy BloomLater build ${BUILD_NUMBER}"
+
+                        git push https://${GIT_USER}:${GIT_TOKEN}@github.com/ridamdarji25/BloomLater.git HEAD:main
+                    '''
+                }
+            }
+        }
+
     }
 
     post {
