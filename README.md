@@ -4,7 +4,7 @@ A 3-tier digital time capsule application (React frontend, Node.js/Express API, 
 
 ## What This Project Covers
 
-<img width="2069" height="760" alt="ChatGPT Image Sep 16, 2026, 09_44_34 AM" src="https://github.com/user-attachments/assets/c39d84ac-7496-4db5-855e-b8fd187005ae" />
+<img width="1672" height="941" alt="ChatGPT Image Sep 16, 2026, 10_04_06 AM" src="https://github.com/user-attachments/assets/4a7ca00b-538e-408f-b2ab-61b9261c50d9" />
 
 ## What This Project Covers
 
