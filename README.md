@@ -4,6 +4,10 @@ A 3-tier digital time capsule application (React frontend, Node.js/Express API, 
 
 ## What This Project Covers
 
+<img width="2069" height="760" alt="ChatGPT Image Sep 16, 2026, 09_44_34 AM" src="https://github.com/user-attachments/assets/c39d84ac-7496-4db5-855e-b8fd187005ae" />
+
+## What This Project Covers
+
 BloomLater runs on Amazon EKS, with ArgoCD continuously reconciling the cluster against what is declared in this repository's `k8s/` directory. A background cron job on the backend checks locked capsules on a schedule and unlocks the ones whose time has come. Authentication is JWT-based, with rate limiting on the login endpoint to slow down credential-stuffing attempts.
 
 This project demonstrates:
